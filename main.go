@@ -11,31 +11,17 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-func loadEnv() {
-	_ = godotenv.Load()
-	if os.Getenv("INTERVAL") == "" {
-		os.Setenv("INTERVAL", "15m")
-	}
-	if os.Getenv("RSI_PERIOD") == "" {
-		os.Setenv("RSI_PERIOD", "14")
-	}
-}
-
 func main() {
-	loadEnv()
+	_ = godotenv.Load()
+	config := LoadConfig()
 
-	cryptos, err := FetchTopCryptos(10, FetchRSI)
+	cryptos, err := FetchTopCryptos(10, FetchRSI, config)
 	if err != nil {
 		log.Fatalf("Error fetching top cryptos: %v", err)
 	}
-	interval := os.Getenv("INTERVAL")
-	rsiPeriod, err := strconv.Atoi(os.Getenv("RSI_PERIOD"))
-	if err != nil {
-		log.Fatalf("Invalid RSI_PERIOD: %v", err)
-	}
 
 	for i, crypto := range cryptos {
-		rsi, err := FetchRSI(crypto.Symbol, interval, rsiPeriod)
+		rsi, err := FetchRSI(crypto.Symbol, config.Interval, config.RSIPeriod)
 		if err != nil {
 			log.Printf("Error fetching RSI for %s: %v", crypto.Symbol, err)
 			continue
@@ -48,7 +34,7 @@ func main() {
 	})
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"#", "Symbol", "RSI", "Market Cap (USD)", "Market Cap Rank"})
+	table.SetHeader([]string{"#", "Symbol", fmt.Sprintf("RSI(%d)", config.RSIPeriod), "Market Cap (USD)", "Market Cap Rank"})
 	table.SetBorder(true)
 	table.SetColumnAlignment([]int{tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_RIGHT})
 
@@ -60,7 +46,7 @@ func main() {
 			crypto.Symbol,
 			fmt.Sprintf("%.2f", crypto.RSI),
 			formattedMarketCapWithComma,
-			strconv.Itoa(crypto.Rank), // Show market cap rank
+			strconv.Itoa(crypto.Rank),
 		})
 	}
 	table.Render()
